@@ -1,2 +1,4 @@
 deps/
 zig-cache
+node_modules
+.zig-cache

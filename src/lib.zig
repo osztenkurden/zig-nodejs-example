@@ -1,14 +1,17 @@
 const std = @import("std");
 const assert = std.debug.assert;
-const c = @import("c.zig");
 const translate = @import("translate.zig");
 
-export fn napi_register_module_v1(env: c.napi_env, exports: c.napi_value) c.napi_value {
+// Declare the struct as an opaque type in Zig
+
+// Create a type alias for the pointer to the struct
+
+export fn napi_register_module_v1(env: translate.napi_env, exports: translate.napi_value) ?translate.napi_value {
     translate.register_function(env, exports, "greet", greet) catch return null;
     return exports;
 }
 
-fn greet(env: c.napi_env, info: c.napi_callback_info) callconv(.C) c.napi_value {
+fn greet(env: translate.napi_env, info: translate.napi_callback_info) callconv(.C) ?translate.napi_value {
     _ = info;
     return translate.create_string(env, "world") catch return null;
 }
