@@ -13,20 +13,20 @@ pub fn register_function(
     function: fn (env: c.napi_env, info: c.napi_callback_info) callconv(.C) c.napi_value,
 ) !void {
     var napi_function: c.napi_value = undefined;
-    if (c.napi_create_function(env, null, 0, function, null, &napi_function) != .napi_ok) {
+    if (c.napi_create_function(env, null, 0, function, null, &napi_function) != 0) {
         return throw(env, "Failed to create function " ++ name ++ "().");
     }
 
-    if (c.napi_set_named_property(env, exports, name, napi_function) != .napi_ok) {
+    if (c.napi_set_named_property(env, exports, name, napi_function) != 0) {
         return throw(env, "Failed to add " ++ name ++ "() to exports.");
     }
 }
 
 const TranslationError = error{ExceptionThrown};
 pub fn throw(env: c.napi_env, comptime message: [:0]const u8) TranslationError {
-    var result = c.napi_throw_error(env, null, message);
+    const result = c.napi_throw_error(env, null, message);
     switch (result) {
-        .napi_ok, .napi_pending_exception => {},
+        0, 10 => {},
         else => unreachable,
     }
 
@@ -35,7 +35,7 @@ pub fn throw(env: c.napi_env, comptime message: [:0]const u8) TranslationError {
 
 pub fn capture_undefined(env: c.napi_env) !c.napi_value {
     var result: c.napi_value = undefined;
-    if (c.napi_get_undefined(env, &result) != .napi_ok) {
+    if (c.napi_get_undefined(env, &result) != 0) {
         return throw(env, "Failed to capture the value of \"undefined\".");
     }
 
@@ -44,16 +44,16 @@ pub fn capture_undefined(env: c.napi_env) !c.napi_value {
 
 pub fn set_instance_data(
     env: c.napi_env,
-    data: *c_void,
-    finalize_callback: fn (env: c.napi_env, data: ?*c_void, hint: ?*c_void) callconv(.C) void,
+    data: *anyopaque,
+    finalize_callback: fn (env: c.napi_env, data: ?*anyopaque, hint: ?*anyopaque) callconv(.C) void,
 ) !void {
     if (c.napi_set_instance_data(env, data, finalize_callback, null) != .napi_ok) {
         return throw(env, "Failed to initialize environment.");
     }
 }
 
-pub fn create_external(env: c.napi_env, context: *c_void) !c.napi_value {
-    var result: c.napi_value = null;
+pub fn create_external(env: c.napi_env, context: *anyopaque) !c.napi_value {
+    const result: c.napi_value = null;
     if (c.napi_create_external(env, context, null, null, &result) != .napi_ok) {
         return throw(env, "Failed to create external for client context.");
     }
@@ -65,8 +65,8 @@ pub fn value_external(
     env: c.napi_env,
     value: c.napi_value,
     comptime error_message: [:0]const u8,
-) !?*c_void {
-    var result: ?*c_void = undefined;
+) !?*anyopaque {
+    var result: ?*anyopaque = undefined;
     if (c.napi_get_value_external(env, value, &result) != .napi_ok) {
         return throw(env, error_message);
     }
@@ -99,8 +99,8 @@ pub fn user_data_from_value(env: c.napi_env, value: c.napi_value) !UserData {
     };
 }
 
-pub fn globals(env: c.napi_env) !?*c_void {
-    var data: ?*c_void = null;
+pub fn globals(env: c.napi_env) !?*anyopaque {
+    var data: ?*anyopaque = null;
     if (c.napi_get_instance_data(env, &data) != .napi_ok) {
         return throw(env, "Failed to decode globals.");
     }
@@ -131,13 +131,13 @@ pub fn slice_from_value(
 
     if (!is_buffer) return throw(env, key ++ " must be a buffer");
 
-    var data: ?*c_void = null;
+    var data: ?*anyopaque = null;
     var data_length: usize = undefined;
     assert(c.napi_get_buffer_info(env, value, &data, &data_length) == .napi_ok);
 
     if (data_length < 1) return throw(env, key ++ " must not be empty");
 
-    return @ptrCast([*]u8, data.?)[0..data_length];
+    return @as([*]u8, @ptrCast(data.?))[0..data_length];
 }
 
 pub fn bytes_from_object(
@@ -216,7 +216,7 @@ pub fn u16_from_object(env: c.napi_env, object: c.napi_value, comptime key: [:0]
         return throw(env, key ++ " must be a u16.");
     }
 
-    return @intCast(u16, result);
+    return @intCast(result);
 }
 
 pub fn u128_from_value(env: c.napi_env, value: c.napi_value, comptime name: [:0]const u8) !u128 {
@@ -226,7 +226,7 @@ pub fn u128_from_value(env: c.napi_env, value: c.napi_value, comptime name: [:0]
     // we would need to convert, but big endian is not supported by tigerbeetle.
     var result: u128 = 0;
     var sign_bit: c_int = undefined;
-    const words = @ptrCast(*[2]u64, &result);
+    const words: *[2]u64 = @ptrCast(&result);
     var word_count: usize = 2;
     switch (c.napi_get_value_bigint_words(env, value, &sign_bit, &word_count, words)) {
         .napi_ok => {},
@@ -299,7 +299,7 @@ pub fn u128_into_object(
         env,
         0,
         2,
-        @ptrCast(*const [2]u64, &value),
+        @ptrCast(&value),
         &bigint,
     ) != .napi_ok) {
         return throw(env, error_message);
@@ -355,7 +355,7 @@ pub fn create_object(env: c.napi_env, comptime error_message: [:0]const u8) !c.n
 
 pub fn create_string(env: c.napi_env, value: [:0]const u8) !c.napi_value {
     var result: c.napi_value = undefined;
-    if (c.napi_create_string_utf8(env, value, value.len, &result) != .napi_ok) {
+    if (c.napi_create_string_utf8(env, value, value.len, &result) != 0) {
         return throw(env, "Failed to create string");
     }
 
@@ -367,13 +367,13 @@ fn create_buffer(
     value: []const u8,
     comptime error_message: [:0]const u8,
 ) !c.napi_value {
-    var data: ?*c_void = undefined;
+    var data: ?*anyopaque = undefined;
     var result: c.napi_value = undefined;
     if (c.napi_create_buffer(env, value.len, &data, &result) != .napi_ok) {
         return throw(env, error_message);
     }
 
-    std.mem.copy(u8, @ptrCast([*]u8, data.?)[0..value.len], value[0..value.len]);
+    std.mem.copy(u8, @as([*]u8, @ptrCast(data.?))[0..value.len], value[0..value.len]);
 
     return result;
 }
