@@ -9,7 +9,7 @@ The entry point is `src/lib.zig`.
 Test this project like this:
 
 1. Git clone it
-2. `npm install` (will download Node.js header files)
+2. `npm install` 
 3. `npm run build` (will compile the Zig project and produce `dist/lib.node`)
 4. `npm run test` (will call the `greet()` function from Zig)
 
