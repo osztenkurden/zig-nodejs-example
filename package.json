@@ -4,8 +4,8 @@
   "description": "Example of a Node.js module written in Zig",
   "main": "index.js",
   "scripts": {
-    "build": "zig build-lib -mcpu=baseline -OReleaseSmall -static src/lib.zig deps/node.lib -fallow-shlib-undefined -femit-bin=dist/lib.node",
-    "test": "node test.js"
+    "build": "zig build",
+    "test": "node index.js"
   },
   "author": "Andre 'Staltz' Medeiros <contact@staltz.com>",
   "license": "Unlicense",

@@ -1,3 +1,3 @@
-const addon = require('./dist/lib');
+const addon = require('./zig-out/lib/example.node');
 
 console.log(addon.greet());
